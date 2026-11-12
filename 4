@@ -38319,7 +38319,7 @@ function SELF_CHAM_STYLES.module.folder(state)
 	if state.folder and state.folder.Parent == camera then return state.folder end
 	if state.folder then pcall(function() state.folder:Destroy() end) end
 	local folder = state.context.environment.Instance.new("Folder")
-	folder.Name, folder.Parent, state.folder = "PulseSELF_CHAM_STYLES.module", camera, folder
+	folder.Name, folder.Parent, state.folder = "PulseSelfChams", camera, folder
 	return folder
 end
 
@@ -38583,7 +38583,7 @@ function SELF_CHAM_STYLES.module.install(context)
 		return spec and spec.material and environment.Enum.Material[spec.material] or nil
 	end
 	local color = function() return state.settings.self.col end
-	globals.__pulseChamsMine, globals.__pulseChamsMat, globals.__pulseSELF_CHAM_STYLES.module, globals.__pulseFxColor = mine, material, state, color
+	globals.__pulseChamsMine, globals.__pulseChamsMat, globals.__pulseSelfChams, globals.__pulseFxColor = mine, material, state, color
 	state.K, state.hls, state.apply = state.settings, state.highlights, refresh
 	context.connect(context.runService.RenderStepped, function()
 		local now = environment.os.clock()
@@ -38601,7 +38601,7 @@ function SELF_CHAM_STYLES.module.install(context)
 		if state.folder then pcall(function() state.folder:Destroy() end) end
 		if globals.__pulseChamsMine == mine then globals.__pulseChamsMine = nil end
 		if globals.__pulseChamsMat == material then globals.__pulseChamsMat = nil end
-		if globals.__pulseSELF_CHAM_STYLES.module == state then globals.__pulseSELF_CHAM_STYLES.module = nil end
+		if globals.__pulseSelfChams == state then globals.__pulseSelfChams = nil end
 		if globals.__pulseFxColor == color then globals.__pulseFxColor = nil end
 	end
 end
@@ -49607,7 +49607,7 @@ function PulseApplication.create(environment, parent, versions)
 	context.stopTrolly = function() end
 
 	-- Non-ESP visual systems are intentionally not installed: keep the Visuals page ESP-only.
-	local stopWeaponSkins, stopGameEffects, stopSELF_CHAM_STYLES.module, stopAuraTint = nil, nil, nil, nil
+	local stopWeaponSkins, stopGameEffects, stopSelfChams, stopAuraTint = nil, nil, nil, nil
 	local stopWalkTrail, stopOptimizer, stopCursor = nil, nil, nil
 	local stopVisualWorld, stopVisualSky, stopTexturePack, stopWeather, stopSkyFx = nil, nil, nil, nil, nil
 	local server = PulseTab.create(environment, hub, "Server", "globe-simplified", context)
@@ -49716,7 +49716,7 @@ function PulseApplication.create(environment, parent, versions)
 		pcall(stopGameEffects)
 		pcall(context.stopKillEffects)
 		pcall(stopAuraTint)
-		pcall(stopSELF_CHAM_STYLES.module)
+		pcall(stopSelfChams)
 		pcall(stopWalkTrail)
 		pcall(stopVisualWorld)
 		pcall(stopVisualSky)
@@ -49782,7 +49782,7 @@ return {
 	WeaponSkins = WeaponSkins,
 	RemoteSkins = RemoteSkins,
 	WalkTrail = WalkTrail,
-	SELF_CHAM_STYLES.module = SELF_CHAM_STYLES.module,
+	SelfChams = SELF_CHAM_STYLES.module,
 	AuraEngine = AuraEngine,
 	AuraTint = AuraTint,
 	AuraHat = AuraHat,
