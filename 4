@@ -38221,46 +38221,46 @@ local SELF_CHAM_STYLES = {
 	Wireframe = {material = "ForceField", clean = true, transparency = 0.85, wire = true},
 	Silhouette = {fill = 0, edge = true}, Tint = {fill = 0.5}, Outline = {edge = true},
 }
-local SELF_CHAM_ORDER = {"ForceField", "Hologram", "Flat", "Neon", "Glow", "Glass", "Crystal", "Chrome", "Metallic", "Ice", "Lava", "Ghost", "Wireframe", "Silhouette", "Tint", "Outline"}
-local SELF_CHAM_ANIMATIONS = {"None", "Pulse", "Breathe", "Fade", "Flash", "Rainbow", "Wave", "Gradient"}
-local SelfChams = {}
+SELF_CHAM_STYLES.order = {"ForceField", "Hologram", "Flat", "Neon", "Glow", "Glass", "Crystal", "Chrome", "Metallic", "Ice", "Lava", "Ghost", "Wireframe", "Silhouette", "Tint", "Outline"}
+SELF_CHAM_STYLES.animations = {"None", "Pulse", "Breathe", "Fade", "Flash", "Rainbow", "Wave", "Gradient"}
+SELF_CHAM_STYLES.module = {}
 
-function SelfChams.color(environment, value, fallback)
+function SELF_CHAM_STYLES.module.color(environment, value, fallback)
 	if type(value) == "table" and tonumber(value.r) and tonumber(value.g) and tonumber(value.b) then
 		return environment.Color3.fromRGB(value.r, value.g, value.b)
 	end
 	return fallback
 end
 
-function SelfChams.saveColor(color)
+function SELF_CHAM_STYLES.module.saveColor(color)
 	return {r = math.floor(color.R * 255 + 0.5), g = math.floor(color.G * 255 + 0.5), b = math.floor(color.B * 255 + 0.5)}
 end
 
-function SelfChams.settings(context)
+function SELF_CHAM_STYLES.module.settings(context)
 	local configuration, environment = context.configuration, context.environment
 	configuration.chamsCfg = type(configuration.chamsCfg) == "table" and configuration.chamsCfg or {}
-	local fallback = SelfChams.color(environment, configuration.chamsCol, environment.Color3.fromRGB(0, 200, 255))
+	local fallback = SELF_CHAM_STYLES.module.color(environment, configuration.chamsCol, environment.Color3.fromRGB(0, 200, 255))
 	local settings = {}
 	for _, kind in {"self", "tool"} do
 		local saved = type(configuration.chamsCfg[kind]) == "table" and configuration.chamsCfg[kind] or {}
 		configuration.chamsCfg[kind] = saved
-		settings[kind] = {on = false, col = SelfChams.color(environment, saved.c, fallback), col2 = SelfChams.color(environment, saved.c2, environment.Color3.new(1, 1, 1)),
+		settings[kind] = {on = false, col = SELF_CHAM_STYLES.module.color(environment, saved.c, fallback), col2 = SELF_CHAM_STYLES.module.color(environment, saved.c2, environment.Color3.new(1, 1, 1)),
 			style = SELF_CHAM_STYLES[tostring(saved.style)] and saved.style or "ForceField",
-			anim = table.find(SELF_CHAM_ANIMATIONS, tostring(saved.anim)) and saved.anim or "None",
+			anim = table.find(SELF_CHAM_STYLES.animations, tostring(saved.anim)) and saved.anim or "None",
 			speed = math.clamp(tonumber(saved.speed) or 100, 10, 300), alpha = math.clamp(tonumber(saved.alpha) or 0, 0, 90), saved = saved}
 	end
 	return settings
 end
 
-function SelfChams.save(state, kind)
+function SELF_CHAM_STYLES.module.save(state, kind)
 	local settings = state.settings[kind]
 	local saved = settings.saved
-	saved.c, saved.c2 = SelfChams.saveColor(settings.col), SelfChams.saveColor(settings.col2)
+	saved.c, saved.c2 = SELF_CHAM_STYLES.module.saveColor(settings.col), SELF_CHAM_STYLES.module.saveColor(settings.col2)
 	saved.style, saved.anim, saved.speed, saved.alpha = settings.style, settings.anim, settings.speed, settings.alpha
-	if kind == "self" then state.context.configuration.chamsCol = SelfChams.saveColor(settings.col) end
+	if kind == "self" then state.context.configuration.chamsCol = SELF_CHAM_STYLES.module.saveColor(settings.col) end
 end
 
-function SelfChams.same(environment, first, second)
+function SELF_CHAM_STYLES.module.same(environment, first, second)
 	if environment.typeof(first) == "Color3" and environment.typeof(second) == "Color3" then
 		return math.abs(first.R - second.R) < 0.004 and math.abs(first.G - second.G) < 0.004 and math.abs(first.B - second.B) < 0.004
 	end
@@ -38268,16 +38268,16 @@ function SelfChams.same(environment, first, second)
 	return first == second
 end
 
-function SelfChams.write(state, object, record, property, desired)
+function SELF_CHAM_STYLES.module.write(state, object, record, property, desired)
 	local current, previous = object[property], record.written[property]
-	if previous == nil or not SelfChams.same(state.context.environment, current, previous) then record.original[property] = current end
+	if previous == nil or not SELF_CHAM_STYLES.module.same(state.context.environment, current, previous) then record.original[property] = current end
 	if type(desired) == "function" then desired = desired(record.original[property]) end
 	if desired == nil then record.written[property] = nil; return end
-	if not SelfChams.same(state.context.environment, current, desired) then object[property] = desired end
+	if not SELF_CHAM_STYLES.module.same(state.context.environment, current, desired) then object[property] = desired end
 	record.written[property] = desired
 end
 
-function SelfChams.restore(state, object, record)
+function SELF_CHAM_STYLES.module.restore(state, object, record)
 	if record.clothing then
 		if not object.Parent and record.parent and record.parent.Parent then object.Parent = record.parent end
 		return
@@ -38286,12 +38286,12 @@ function SelfChams.restore(state, object, record)
 	for property, original in record.original do
 		local written = record.written[property]
 		if written ~= nil then
-			pcall(function() if SelfChams.same(state.context.environment, object[property], written) then object[property] = original end end)
+			pcall(function() if SELF_CHAM_STYLES.module.same(state.context.environment, object[property], written) then object[property] = original end end)
 		end
 	end
 end
 
-function SelfChams.animated(state, settings, time, height)
+function SELF_CHAM_STYLES.module.animated(state, settings, time, height)
 	local color, second, animation = settings.col, settings.col2, settings.anim
 	local phase = time * settings.speed / 100
 	if animation == "Pulse" then
@@ -38310,26 +38310,26 @@ function SelfChams.animated(state, settings, time, height)
 	return color, 0
 end
 
-function SelfChams.transparency(original, style, settings, animation)
+function SELF_CHAM_STYLES.module.transparency(original, style, settings, animation)
 	return 1 - (1 - original) * (1 - (style or 0)) * (1 - settings.alpha / 100) * (1 - animation)
 end
 
-function SelfChams.folder(state)
+function SELF_CHAM_STYLES.module.folder(state)
 	local camera = state.context.workspace.CurrentCamera
 	if state.folder and state.folder.Parent == camera then return state.folder end
 	if state.folder then pcall(function() state.folder:Destroy() end) end
 	local folder = state.context.environment.Instance.new("Folder")
-	folder.Name, folder.Parent, state.folder = "PulseSelfChams", camera, folder
+	folder.Name, folder.Parent, state.folder = "PulseSELF_CHAM_STYLES.module", camera, folder
 	return folder
 end
 
-function SelfChams.appearance(state)
+function SELF_CHAM_STYLES.module.appearance(state)
 	local camera = state.context.workspace.CurrentCamera
 	local model = camera and camera:FindFirstChild("PulseSkin")
 	return model and model:IsA("Model") and model or nil
 end
 
-function SelfChams.displays(state, character)
+function SELF_CHAM_STYLES.module.displays(state, character)
 	local result = {}
 	for _, kind in {"Knife", "Gun"} do
 		local reference = character:FindFirstChild("DisplayRef" .. kind)
@@ -38343,11 +38343,11 @@ function SelfChams.displays(state, character)
 	return result
 end
 
-function SelfChams.visible(object)
+function SELF_CHAM_STYLES.module.visible(object)
 	return not object:IsA("BasePart") or object.Transparency < 0.99 and object.LocalTransparencyModifier < 0.99
 end
 
-function SelfChams.collect(state, root, kind, style, clothing, wanted, boxes)
+function SELF_CHAM_STYLES.module.collect(state, root, kind, style, clothing, wanted, boxes)
 	local function add(object)
 		if object:GetAttribute("PulseVFX") then return end
 		if object:IsA("BasePart") then
@@ -38363,15 +38363,15 @@ function SelfChams.collect(state, root, kind, style, clothing, wanted, boxes)
 	for _, object in root:GetDescendants() do add(object) end
 end
 
-function SelfChams.targets(state)
+function SELF_CHAM_STYLES.module.targets(state)
 	local wanted, highlights, boxes = {}, {}, {}
 	local character = state.context.player.Character
 	if not character then return wanted, highlights, boxes end
 	local own, tool = state.settings.self, state.settings.tool
 	if own.on then
-		local style, appearance = SELF_CHAM_STYLES[own.style], SelfChams.appearance(state)
-		for _, child in character:GetChildren() do if not child:IsA("Tool") then SelfChams.collect(state, child, "self", style, true, wanted, boxes) end end
-		if appearance then SelfChams.collect(state, appearance, "self", style, true, wanted, boxes) end
+		local style, appearance = SELF_CHAM_STYLES[own.style], SELF_CHAM_STYLES.module.appearance(state)
+		for _, child in character:GetChildren() do if not child:IsA("Tool") then SELF_CHAM_STYLES.module.collect(state, child, "self", style, true, wanted, boxes) end end
+		if appearance then SELF_CHAM_STYLES.module.collect(state, appearance, "self", style, true, wanted, boxes) end
 		if style.fill ~= nil or style.edge then
 			highlights[appearance or character] = "self"
 			if not appearance then for _, child in character:GetChildren() do if child:IsA("Tool") then highlights[child] = "block" end end end
@@ -38379,18 +38379,18 @@ function SelfChams.targets(state)
 	end
 	if tool.on then
 		local style = SELF_CHAM_STYLES[tool.style]
-		local targets = SelfChams.displays(state, character)
+		local targets = SELF_CHAM_STYLES.module.displays(state, character)
 		for _, child in character:GetChildren() do if child:IsA("Tool") then table.insert(targets, child) end end
 		for _, target in targets do
-			if not SelfChams.visible(target) then continue end
-			SelfChams.collect(state, target, "tool", style, false, wanted, boxes)
+			if not SELF_CHAM_STYLES.module.visible(target) then continue end
+			SELF_CHAM_STYLES.module.collect(state, target, "tool", style, false, wanted, boxes)
 			if style.fill ~= nil or style.edge then highlights[target] = "tool" end
 		end
 	end
 	return wanted, highlights, boxes
 end
 
-function SelfChams.reconcile(state, wanted, highlights, boxes)
+function SELF_CHAM_STYLES.module.reconcile(state, wanted, highlights, boxes)
 	local environment = state.context.environment
 	for object, record in state.saved do
 		local keep = wanted[object] == record.kind
@@ -38398,7 +38398,7 @@ function SelfChams.reconcile(state, wanted, highlights, boxes)
 			local settings = state.settings[record.kind]
 			keep = settings.on and SELF_CHAM_STYLES[settings.style].clean == true and record.parent and record.parent.Parent ~= nil
 		end
-		if not keep then state.saved[object] = nil; pcall(SelfChams.restore, state, object, record) end
+		if not keep then state.saved[object] = nil; pcall(SELF_CHAM_STYLES.module.restore, state, object, record) end
 	end
 	for object, kind in wanted do
 		if state.saved[object] then continue end
@@ -38418,7 +38418,7 @@ function SelfChams.reconcile(state, wanted, highlights, boxes)
 		if state.highlights[object] then continue end
 		local highlight = environment.Instance.new("Highlight")
 		highlight.Name, highlight.DepthMode, highlight.FillTransparency, highlight.OutlineTransparency = "PulseChamsHL", environment.Enum.HighlightDepthMode.Occluded, 1, 1
-		highlight.Adornee, highlight.Parent = object, SelfChams.folder(state)
+		highlight.Adornee, highlight.Parent = object, SELF_CHAM_STYLES.module.folder(state)
 		state.highlights[object] = {object = highlight, kind = kind}
 	end
 	for object, record in state.boxes do
@@ -38428,46 +38428,46 @@ function SelfChams.reconcile(state, wanted, highlights, boxes)
 		if state.boxes[object] then continue end
 		local box = environment.Instance.new("SelectionBox")
 		box.Name, box.LineThickness, box.SurfaceTransparency, box.Transparency = "PulseChamsWire", 0.025, 1, 1
-		box.Adornee, box.Parent = object, SelfChams.folder(state)
+		box.Adornee, box.Parent = object, SELF_CHAM_STYLES.module.folder(state)
 		state.boxes[object] = {object = box, kind = kind}
 	end
 end
 
-function SelfChams.paint(state, full)
+function SELF_CHAM_STYLES.module.paint(state, full)
 	local environment, character = state.context.environment, state.context.player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
 	local origin = root and root.Position.Y
-	local appearance = SelfChams.appearance(state)
+	local appearance = SELF_CHAM_STYLES.module.appearance(state)
 	local time = environment.os.clock() - state.started
 	for object, record in state.saved do
 		local settings = state.settings[record.kind]
 		local style = SELF_CHAM_STYLES[settings.style]
 		if record.part and object.Parent and style.material and (full or settings.anim ~= "None") then
 			pcall(function()
-				local color, animation = SelfChams.animated(state, settings, time, origin and object.Position.Y - origin or 0)
-				SelfChams.write(state, object, record, "Material", environment.Enum.Material[style.material])
-				SelfChams.write(state, object, record, "Color", color)
-				SelfChams.write(state, object, record, "Reflectance", style.reflectance or 0)
-				if full and style.clean and record.meshPart then SelfChams.write(state, object, record, "TextureID", "") end
+				local color, animation = SELF_CHAM_STYLES.module.animated(state, settings, time, origin and object.Position.Y - origin or 0)
+				SELF_CHAM_STYLES.module.write(state, object, record, "Material", environment.Enum.Material[style.material])
+				SELF_CHAM_STYLES.module.write(state, object, record, "Color", color)
+				SELF_CHAM_STYLES.module.write(state, object, record, "Reflectance", style.reflectance or 0)
+				if full and style.clean and record.meshPart then SELF_CHAM_STYLES.module.write(state, object, record, "TextureID", "") end
 				local transparency = style.transparency or 0
 				if transparency > 0 or settings.alpha > 0 or animation > 0 or record.written.Transparency ~= nil then
-					SelfChams.write(state, object, record, "Transparency", function(original)
+					SELF_CHAM_STYLES.module.write(state, object, record, "Transparency", function(original)
 						if original >= 0.99 then return nil end
-						return SelfChams.transparency(original, transparency, settings, animation)
+						return SELF_CHAM_STYLES.module.transparency(original, transparency, settings, animation)
 					end)
 				end
 			end)
 			continue
 		end
-		if full and object.Parent and record.decal then pcall(SelfChams.write, state, object, record, "Transparency", 1) end
-		if full and object.Parent and record.mesh then pcall(SelfChams.write, state, object, record, "TextureId", "") end
+		if full and object.Parent and record.decal then pcall(SELF_CHAM_STYLES.module.write, state, object, record, "Transparency", 1) end
+		if full and object.Parent and record.mesh then pcall(SELF_CHAM_STYLES.module.write, state, object, record, "TextureId", "") end
 	end
 	for object, record in state.highlights do
 		pcall(function()
 			local highlight = record.object
 			if record.kind == "block" then highlight.FillTransparency, highlight.OutlineTransparency, highlight.Enabled = 1, 1, true; return end
 			local settings, style = state.settings[record.kind], SELF_CHAM_STYLES[state.settings[record.kind].style]
-			local color, animation = SelfChams.animated(state, settings, time, 0)
+			local color, animation = SELF_CHAM_STYLES.module.animated(state, settings, time, 0)
 			local hidden = 0
 			if object == character or object == appearance then
 				local head = object:FindFirstChild("Head")
@@ -38475,32 +38475,32 @@ function SelfChams.paint(state, full)
 			end
 			highlight.FillColor = color
 			highlight.OutlineColor = style.fill == 0 and color:Lerp(environment.Color3.new(1, 1, 1), 0.4) or color
-			highlight.FillTransparency = style.fill ~= nil and 1 - (1 - SelfChams.transparency(0, style.fill, settings, animation)) * (1 - hidden) or 1
-			highlight.OutlineTransparency = style.edge and 1 - (1 - SelfChams.transparency(0, 0, settings, animation)) * (1 - hidden) or 1
-			highlight.Enabled = hidden < 0.95 and SelfChams.visible(object)
+			highlight.FillTransparency = style.fill ~= nil and 1 - (1 - SELF_CHAM_STYLES.module.transparency(0, style.fill, settings, animation)) * (1 - hidden) or 1
+			highlight.OutlineTransparency = style.edge and 1 - (1 - SELF_CHAM_STYLES.module.transparency(0, 0, settings, animation)) * (1 - hidden) or 1
+			highlight.Enabled = hidden < 0.95 and SELF_CHAM_STYLES.module.visible(object)
 		end)
 	end
 	for object, record in state.boxes do
 		pcall(function()
 			local settings = state.settings[record.kind]
-			local color, animation = SelfChams.animated(state, settings, time, origin and object.Position.Y - origin or 0)
+			local color, animation = SELF_CHAM_STYLES.module.animated(state, settings, time, origin and object.Position.Y - origin or 0)
 			local hidden = object.LocalTransparencyModifier
 			record.object.Color3 = color
-			record.object.Transparency = 1 - (1 - SelfChams.transparency(0, 0, settings, animation)) * (1 - hidden)
+			record.object.Transparency = 1 - (1 - SELF_CHAM_STYLES.module.transparency(0, 0, settings, animation)) * (1 - hidden)
 			record.object.Visible = hidden < 0.95 and object.Transparency < 0.99
 		end)
 	end
 end
 
-function SelfChams.refresh(state)
-	local wanted, highlights, boxes = SelfChams.targets(state)
-	SelfChams.reconcile(state, wanted, highlights, boxes)
-	SelfChams.paint(state, true)
+function SELF_CHAM_STYLES.module.refresh(state)
+	local wanted, highlights, boxes = SELF_CHAM_STYLES.module.targets(state)
+	SELF_CHAM_STYLES.module.reconcile(state, wanted, highlights, boxes)
+	SELF_CHAM_STYLES.module.paint(state, true)
 end
 
-function SelfChams.clearKind(state, kind)
+function SELF_CHAM_STYLES.module.clearKind(state, kind)
 	for object, record in state.saved do
-		if record.kind == kind then state.saved[object] = nil; pcall(SelfChams.restore, state, object, record) end
+		if record.kind == kind then state.saved[object] = nil; pcall(SELF_CHAM_STYLES.module.restore, state, object, record) end
 	end
 	for object, record in state.highlights do
 		if record.kind == kind or kind == "self" and record.kind == "block" then state.highlights[object] = nil; pcall(function() record.object:Destroy() end) end
@@ -38510,22 +38510,22 @@ function SelfChams.clearKind(state, kind)
 	end
 end
 
-function SelfChams.synchronize(state)
-	local restored = SelfChams.settings(state.context)
+function SELF_CHAM_STYLES.module.synchronize(state)
+	local restored = SELF_CHAM_STYLES.module.settings(state.context)
 	for _, kind in {"self", "tool"} do
 		local current, values = state.settings[kind], restored[kind]
 		for _, key in {"col", "col2", "style", "anim", "speed", "alpha", "saved"} do current[key] = values[key] end
 		for key, handle in state.controls[kind] do pcall(handle.SetSilent, current[key]) end
-		SelfChams.clearKind(state, kind)
+		SELF_CHAM_STYLES.module.clearKind(state, kind)
 	end
-	pcall(SelfChams.refresh, state)
+	pcall(SELF_CHAM_STYLES.module.refresh, state)
 	local tint = state.context.environment.getgenv().__pulseVFXTint
 	if tint then pcall(tint) end
 end
 
-function SelfChams.install(context)
+function SELF_CHAM_STYLES.module.install(context)
 	local environment, globals = context.environment, context.environment.getgenv()
-	local state = {context = context, settings = SelfChams.settings(context), saved = {}, highlights = {}, boxes = {},
+	local state = {context = context, settings = SELF_CHAM_STYLES.module.settings(context), saved = {}, highlights = {}, boxes = {},
 		controls = {self = {}, tool = {}}, started = environment.os.clock(), scanAt = 0, paintAt = 0}
 	local function options(values)
 		local result = {}
@@ -38535,31 +38535,31 @@ function SelfChams.install(context)
 	local function tint()
 		if globals.__pulseVFXTint then pcall(globals.__pulseVFXTint) end
 	end
-	local function refresh() pcall(SelfChams.refresh, state) end
+	local function refresh() pcall(SELF_CHAM_STYLES.module.refresh, state) end
 	local function controls(kind)
 		return function()
 			local settings = state.settings[kind]
 			state.controls[kind].col = context.section:Colorpicker({Text = "Chams Color", NoSave = true, Default = settings.col, Callback = function(color)
 				if environment.typeof(color) ~= "Color3" then return end
-				settings.col = color; SelfChams.save(state, kind); pcall(SelfChams.paint, state, true); if kind == "self" then tint() end
+				settings.col = color; SELF_CHAM_STYLES.module.save(state, kind); pcall(SELF_CHAM_STYLES.module.paint, state, true); if kind == "self" then tint() end
 			end})
-			state.controls[kind].style = context.section:Dropdown({Text = "Chams Style", NoSave = true, Default = settings.style, Options = options(SELF_CHAM_ORDER), Callback = function(value)
+			state.controls[kind].style = context.section:Dropdown({Text = "Chams Style", NoSave = true, Default = settings.style, Options = options(SELF_CHAM_STYLES.order), Callback = function(value)
 				if not SELF_CHAM_STYLES[value] or value == settings.style then return end
-				settings.style = value; SelfChams.save(state, kind); SelfChams.clearKind(state, kind); refresh()
+				settings.style = value; SELF_CHAM_STYLES.module.save(state, kind); SELF_CHAM_STYLES.module.clearKind(state, kind); refresh()
 			end})
-			state.controls[kind].anim = context.section:Dropdown({Text = "Animation", NoSave = true, Default = settings.anim, Options = options(SELF_CHAM_ANIMATIONS), Callback = function(value)
-				if not table.find(SELF_CHAM_ANIMATIONS, value) then return end
-				settings.anim = value; SelfChams.save(state, kind); refresh()
+			state.controls[kind].anim = context.section:Dropdown({Text = "Animation", NoSave = true, Default = settings.anim, Options = options(SELF_CHAM_STYLES.animations), Callback = function(value)
+				if not table.find(SELF_CHAM_STYLES.animations, value) then return end
+				settings.anim = value; SELF_CHAM_STYLES.module.save(state, kind); refresh()
 			end})
 			state.controls[kind].speed = context.section:Slider({Text = "Animation Speed", NoSave = true, Min = 10, Max = 300, Default = settings.speed, Decimals = 0, Suffix = "%", Callback = function(value)
-				settings.speed = math.clamp(tonumber(value) or 100, 10, 300); SelfChams.save(state, kind)
+				settings.speed = math.clamp(tonumber(value) or 100, 10, 300); SELF_CHAM_STYLES.module.save(state, kind)
 			end})
 			state.controls[kind].col2 = context.section:Colorpicker({Text = "Second Color", NoSave = true, Default = settings.col2, Callback = function(color)
 				if environment.typeof(color) ~= "Color3" then return end
-				settings.col2 = color; SelfChams.save(state, kind); pcall(SelfChams.paint, state, true)
+				settings.col2 = color; SELF_CHAM_STYLES.module.save(state, kind); pcall(SELF_CHAM_STYLES.module.paint, state, true)
 			end})
 			state.controls[kind].alpha = context.section:Slider({Text = "Chams Transparency", NoSave = true, Min = 0, Max = 90, Default = settings.alpha, Decimals = 0, Suffix = "%", Callback = function(value)
-				settings.alpha = math.clamp(tonumber(value) or 0, 0, 90); SelfChams.save(state, kind); pcall(SelfChams.paint, state, true)
+				settings.alpha = math.clamp(tonumber(value) or 0, 0, 90); SELF_CHAM_STYLES.module.save(state, kind); pcall(SELF_CHAM_STYLES.module.paint, state, true)
 			end})
 		end
 	end
@@ -38569,7 +38569,7 @@ function SelfChams.install(context)
 		end, Settings = controls(kind)})
 	end
 	context.section:Toggle({Text = "Tint Auras / VFX", Default = false, Callback = function(value) globals.__pulseFxTintOn = not not value; tint() end})
-	if context.applyHooks then table.insert(context.applyHooks, function() SelfChams.synchronize(state) end) end
+	if context.applyHooks then table.insert(context.applyHooks, function() SELF_CHAM_STYLES.module.synchronize(state) end) end
 	local mine = function()
 		local own, tool = state.settings.self, state.settings.tool
 		if not own.on and not tool.on then return nil end
@@ -38583,7 +38583,7 @@ function SelfChams.install(context)
 		return spec and spec.material and environment.Enum.Material[spec.material] or nil
 	end
 	local color = function() return state.settings.self.col end
-	globals.__pulseChamsMine, globals.__pulseChamsMat, globals.__pulseSelfChams, globals.__pulseFxColor = mine, material, state, color
+	globals.__pulseChamsMine, globals.__pulseChamsMat, globals.__pulseSELF_CHAM_STYLES.module, globals.__pulseFxColor = mine, material, state, color
 	state.K, state.hls, state.apply = state.settings, state.highlights, refresh
 	context.connect(context.runService.RenderStepped, function()
 		local now = environment.os.clock()
@@ -38593,15 +38593,15 @@ function SelfChams.install(context)
 		if now - state.paintAt < 1 / 30 then return end
 		if state.settings.self.anim == "None" and state.settings.tool.anim == "None" and not next(state.highlights) and not next(state.boxes) then return end
 		state.paintAt = now
-		pcall(SelfChams.paint, state, false)
+		pcall(SELF_CHAM_STYLES.module.paint, state, false)
 	end)
 	return state, function()
 		state.settings.self.on, state.settings.tool.on = false, false
-		SelfChams.clearKind(state, "self"); SelfChams.clearKind(state, "tool")
+		SELF_CHAM_STYLES.module.clearKind(state, "self"); SELF_CHAM_STYLES.module.clearKind(state, "tool")
 		if state.folder then pcall(function() state.folder:Destroy() end) end
 		if globals.__pulseChamsMine == mine then globals.__pulseChamsMine = nil end
 		if globals.__pulseChamsMat == material then globals.__pulseChamsMat = nil end
-		if globals.__pulseSelfChams == state then globals.__pulseSelfChams = nil end
+		if globals.__pulseSELF_CHAM_STYLES.module == state then globals.__pulseSELF_CHAM_STYLES.module = nil end
 		if globals.__pulseFxColor == color then globals.__pulseFxColor = nil end
 	end
 end
@@ -49607,7 +49607,7 @@ function PulseApplication.create(environment, parent, versions)
 	context.stopTrolly = function() end
 
 	-- Non-ESP visual systems are intentionally not installed: keep the Visuals page ESP-only.
-	local stopWeaponSkins, stopGameEffects, stopSelfChams, stopAuraTint = nil, nil, nil, nil
+	local stopWeaponSkins, stopGameEffects, stopSELF_CHAM_STYLES.module, stopAuraTint = nil, nil, nil, nil
 	local stopWalkTrail, stopOptimizer, stopCursor = nil, nil, nil
 	local stopVisualWorld, stopVisualSky, stopTexturePack, stopWeather, stopSkyFx = nil, nil, nil, nil, nil
 	local server = PulseTab.create(environment, hub, "Server", "globe-simplified", context)
@@ -49716,7 +49716,7 @@ function PulseApplication.create(environment, parent, versions)
 		pcall(stopGameEffects)
 		pcall(context.stopKillEffects)
 		pcall(stopAuraTint)
-		pcall(stopSelfChams)
+		pcall(stopSELF_CHAM_STYLES.module)
 		pcall(stopWalkTrail)
 		pcall(stopVisualWorld)
 		pcall(stopVisualSky)
@@ -49782,7 +49782,7 @@ return {
 	WeaponSkins = WeaponSkins,
 	RemoteSkins = RemoteSkins,
 	WalkTrail = WalkTrail,
-	SelfChams = SelfChams,
+	SELF_CHAM_STYLES.module = SELF_CHAM_STYLES.module,
 	AuraEngine = AuraEngine,
 	AuraTint = AuraTint,
 	AuraHat = AuraHat,
